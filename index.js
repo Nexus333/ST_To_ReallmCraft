@@ -16,23 +16,55 @@ const extensionSettings = extension_settings[extensionName];
 const defaultSettings = {};
 
 
- 
+
 // Loads the extension settings if they exist, otherwise initializes them to the defaults.
 async function loadSettings() {
   //Create the settings if they don't exist
   if (!extension_settings.st2rc) {
-    extension_settings[extensionName] = defaultSettings;
-  }
-  else{
     extension_settings.st2rc= {
       isEnabled: true,
-      port: "5003"
+      port: "5003",
+      api_type: "ooba"
+    };
+  }
+  // Updating settings in the UI
+  $("#example_setting").prop("checked", extension_settings[extensionName].example_setting).trigger("input");
+}
+
+const sendToCompletions = async(_, input) => {
+  console.log("RC2ST - entering completions... ");
+  input = input.replace("/rc_send ", "");
+  let input_main = input;
+  executeSlashCommands("/send "+input_main.replaceAll(new RegExp("```.*```", "g"), ""));
+  executeSlashCommands("/echo sendinging to ReallmCraft...");
+  setSendButtonState(true)
+  let result = await fetch('http://localhost:'+extension_settings.st2rc.port.toString()+'/completions', {
+    method: 'POST',
+    headers: getRequestHeaders(),
+    body: JSON.stringify({ prompt: input, api_type: extension_settings.st2rc.api_type }),
+  }).then(response => (response.json().then(data=> ({state: response.ok, data: data}))).then(data => { console.log(data); return data;}));
+
+  console.log("RC2ST - Response: ",JSON.stringify(result));
+  console.log("RC2ST - Response Code: ",result.state);
+
+  console.log("RC2ST - DATA RETURNED: ", JSON.stringify(result.data));
+
+  if (result.state === false) {
+    try{
+      console.log(JSON.stringify(result.data));
+      executeSlashCommands("/echo "+result.data.response);
+      return;
+    } catch (e) {
+      console.log("RC2ST Error: ", e);
+      executeSlashCommands("/echo Unable to connect to ReallmCraft. Please check your settings and try again.");
+      return;
     }
 
   }
 
-  // Updating settings in the UI
-  $("#example_setting").prop("checked", extension_settings[extensionName].example_setting).trigger("input");
+  executeSlashCommands("/sendas name=\"Narrator\" "+result.data.response);
+  setSendButtonState(false);
+
 }
 
 // This function is called when the extension settings are changed in the UI
@@ -47,8 +79,8 @@ function onButtonClick() {
   // You can do whatever you want here
   // Let's make a popup appear with the checked setting
   toastr.info(
-    `The checkbox is ${extension_settings[extensionName].example_setting ? "checked" : "not checked"}`,
-    "A popup appeared because you clicked the button!"
+      `The checkbox is ${extension_settings[extensionName].example_setting ? "checked" : "not checked"}`,
+      "A popup appeared because you clicked the button!"
   );
 }
 
@@ -80,7 +112,7 @@ jQuery(async () => {
 
   // Append settingsHtml to extensions_settings
   // extension_settings and extensions_settings2 are the left and right columns of the settings menu
-  // Left should be extensions that deal with system functions and right should be visual/UI related 
+  // Left should be extensions that deal with system functions and right should be visual/UI related
   $("#extensions_settings").append(settingsHtml);
 
   // These are examples of listening for events
@@ -89,4 +121,6 @@ jQuery(async () => {
 
   // Load settings when starting things up (if you have any)
   loadSettings();
+
+  registerSlashCommand("rc_send", sendToCompletions, ["rc_completions"], "Sends data in the input field to the completions endpoint.", true, true);
 });
