@@ -1,10 +1,10 @@
 # SillyTavern Extension Example
 
-*Provide a brief description of how your extension works, what problem it aims to solve.*
+*Provides an adapter through slash commands to execute stuff on ReallmCraft Endpoints*
 
 ## Features
 
-*Describe some of the main selling points of your extension.*
+- Basically useless without ReallmCraft
 
 ## Installation and Usage
 
